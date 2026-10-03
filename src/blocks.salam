@@ -1,0 +1,202 @@
+// Block level Markdown: headings, paragraphs, lists, code fences,
+// blockquotes and horizontal rules.
+package blocks
+
+import str
+import "escape"
+import "spans"
+import "slug"
+
+// Heading records one heading so callers can build a table of contents.
+pub struct Heading:
+    pub level: int
+    pub text: str
+    pub id: str
+end
+
+// headingLevel returns 1-6 for "# Title" style lines and 0 for anything else.
+func headingLevel(line: str): int:
+    mut n := 0
+    while n < line.len() && n < 6 && line.substr(n, 1) == "#":
+        n += 1
+    end
+    if n > 0 && line.len() > n && line.substr(n, 1) == " ":
+        ret n
+    end
+    ret 0
+end
+
+// isRule reports whether the line is ---, *** or ___ (three or more).
+func isRule(line: str): bool:
+    t := str.Trim(line)
+    if t.len() < 3:
+        ret false
+    end
+    first := t.substr(0, 1)
+    if first != "-" && first != "*" && first != "_":
+        ret false
+    end
+    mut i := 0
+    while i < t.len():
+        if t.substr(i, 1) != first:
+            ret false
+        end
+        i += 1
+    end
+    ret true
+end
+
+// listKind returns 1 for bullet items, 2 for numbered items and 0 otherwise.
+func listKind(line: str): int:
+    if str.StartsWith(line, "- ") || str.StartsWith(line, "* ") || str.StartsWith(line, "+ "):
+        ret 1
+    end
+    mut i := 0
+    while i < line.len() && str.IsAsciiDigit(line[i] as int):
+        i += 1
+    end
+    if i > 0 && i + 1 < line.len() && line.substr(i, 2) == ". ":
+        ret 2
+    end
+    ret 0
+end
+
+// listText strips the bullet or "1. " marker from a list line.
+func listText(line: str): str:
+    mut i := 0
+    if line.substr(0, 1) == "-" || line.substr(0, 1) == "*" || line.substr(0, 1) == "+":
+        i = 2
+    else:
+        while i < line.len() && line.substr(i, 1) != ".":
+            i += 1
+        end
+        i += 2
+    end
+    ret line.substr(i, line.len() - i)
+end
+
+// Render converts Markdown to HTML and appends every heading it meets to heads.
+pub func Render(md: str, heads &: Vector<Heading>): str:
+    normalized := str.Replace(md, "\r\n", "\n")
+    lines := normalized.split("\n")
+    mut out := ""
+    mut para := ""
+    mut i := 0
+    while i < lines.len():
+        line := lines[i]
+        trimmed := str.Trim(line)
+
+        // fenced code block
+        if str.StartsWith(trimmed, "```"):
+            lang := str.Trim(trimmed.substr(3, trimmed.len() - 3))
+            mut code := ""
+            i += 1
+            while i < lines.len() && !str.StartsWith(str.Trim(lines[i]), "```"):
+                if code.len() > 0 || i > 0:
+                    code = code.concat(lines[i]).concat("\n")
+                end
+                i += 1
+            end
+            if para.len() > 0:
+                out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+                para = ""
+            end
+            if lang.len() > 0:
+                out = out.concat("<pre><code class=\"language-").concat(escape.Html(lang)).concat("\">")
+            else:
+                out = out.concat("<pre><code>")
+            end
+            out = out.concat(escape.Html(code)).concat("</code></pre>\n")
+            i += 1
+            continue
+        end
+
+        // blank line ends a paragraph
+        if trimmed.len() == 0:
+            if para.len() > 0:
+                out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+                para = ""
+            end
+            i += 1
+            continue
+        end
+
+        lvl := headingLevel(trimmed)
+        if lvl > 0:
+            if para.len() > 0:
+                out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+                para = ""
+            end
+            text := str.Trim(trimmed.substr(lvl, trimmed.len() - lvl))
+            id := slug.Make(text)
+            heads.push(Heading { level = lvl, text = text, id = id })
+            tag := "h".concat(str.FromInt(lvl as i64))
+            out = out.concat("<").concat(tag).concat(" id=\"").concat(id).concat("\">")
+            out = out.concat(spans.Render(text)).concat("</").concat(tag).concat(">\n")
+            i += 1
+            continue
+        end
+
+        if isRule(trimmed):
+            if para.len() > 0:
+                out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+                para = ""
+            end
+            out = out.concat("<hr>\n")
+            i += 1
+            continue
+        end
+
+        // blockquote: gather consecutive "> " lines and render them recursively
+        if str.StartsWith(trimmed, ">"):
+            if para.len() > 0:
+                out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+                para = ""
+            end
+            mut inner := ""
+            while i < lines.len() && str.StartsWith(str.Trim(lines[i]), ">"):
+                mut q := str.Trim(lines[i])
+                q = q.substr(1, q.len() - 1)
+                if str.StartsWith(q, " "):
+                    q = q.substr(1, q.len() - 1)
+                end
+                inner = inner.concat(q).concat("\n")
+                i += 1
+            end
+            out = out.concat("<blockquote>\n").concat(Render(inner, heads)).concat("</blockquote>\n")
+            continue
+        end
+
+        // lists
+        kind := listKind(trimmed)
+        if kind > 0:
+            if para.len() > 0:
+                out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+                para = ""
+            end
+            mut listTag := "ul"
+            if kind == 2:
+                listTag = "ol"
+            end
+            out = out.concat("<").concat(listTag).concat(">\n")
+            while i < lines.len() && listKind(str.Trim(lines[i])) == kind:
+                item := listText(str.Trim(lines[i]))
+                out = out.concat("<li>").concat(spans.Render(item)).concat("</li>\n")
+                i += 1
+            end
+            out = out.concat("</").concat(listTag).concat(">\n")
+            continue
+        end
+
+        // plain paragraph text
+        if para.len() > 0:
+            para = para.concat(" ")
+        end
+        para = para.concat(trimmed)
+        i += 1
+    end
+    if para.len() > 0:
+        out = out.concat("<p>").concat(spans.Render(para)).concat("</p>\n")
+    end
+    ret out
+end

@@ -1,0 +1,28 @@
+import os
+import "../src/blocks"
+import "check"
+
+func render(md: str): str:
+    mut heads := Vector {} as Vector<blocks.Heading>
+    ret blocks.Render(md, heads)
+end
+
+func main:
+    mut fails := 0
+    fails += check.Equal("heading", render("## Hello World"), "<h2 id=\"hello-world\">Hello World</h2>\n")
+    fails += check.Equal("paragraph joins lines", render("one\ntwo\n\nthree"), "<p>one two</p>\n<p>three</p>\n")
+    fails += check.Equal("bullets", render("- a\n- b"), "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n")
+    fails += check.Equal("numbered", render("1. a\n2. b"), "<ol>\n<li>a</li>\n<li>b</li>\n</ol>\n")
+    fails += check.Equal("rule", render("---"), "<hr>\n")
+    fails += check.Equal("code fence", render("```salam\nprintln 1 < 2\n```"), "<pre><code class=\"language-salam\">println 1 &lt; 2\n</code></pre>\n")
+    fails += check.Equal("quote", render("> hi *you*"), "<blockquote>\n<p>hi <em>you</em></p>\n</blockquote>\n")
+    fails += check.Equal("inline in list", render("- **b**"), "<ul>\n<li><strong>b</strong></li>\n</ul>\n")
+    fails += check.Equal("not a heading", render("#nospace"), "<p>#nospace</p>\n")
+    mut heads := Vector {} as Vector<blocks.Heading>
+    blocks.Render("# A\n## B\ntext", heads)
+    fails += check.EqualInt("heading count", heads.len(), 2)
+    fails += check.Equal("heading id", heads[1].id, "b")
+    if fails > 0:
+        os.Exit(1)
+    end
+end
