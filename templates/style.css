@@ -1,0 +1,52 @@
+:root {
+  --bg: #fbfaf8;
+  --fg: #1d1d1f;
+  --muted: #6b6b70;
+  --accent: #0b6e4f;
+  --rule: #e4e1da;
+  --code-bg: #f1eee8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181a;
+    --fg: #e8e6e1;
+    --muted: #9a9aa0;
+    --accent: #5fd0a5;
+    --rule: #2c2e31;
+    --code-bg: #212326;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 18px/1.65 Georgia, "Times New Roman", serif;
+}
+.site-header, main, .site-footer { max-width: 42rem; margin: 0 auto; padding: 0 1.25rem; }
+.site-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-top: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--rule);
+  font-family: system-ui, sans-serif;
+}
+.brand { font-weight: 700; text-decoration: none; color: var(--fg); }
+.site-nav a { margin-left: 1rem; color: var(--muted); text-decoration: none; }
+.site-nav a:hover, a:hover { color: var(--accent); }
+a { color: var(--accent); }
+h1, h2, h3 { line-height: 1.25; font-family: system-ui, sans-serif; }
+.page-title { margin-top: 2rem; }
+.meta { color: var(--muted); font: 0.85rem system-ui, sans-serif; }
+code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+pre { background: var(--code-bg); padding: 1rem; overflow-x: auto; border-radius: 6px; }
+pre code { background: none; padding: 0; }
+blockquote { margin: 1.5rem 0; padding-left: 1rem; border-left: 3px solid var(--accent); color: var(--muted); }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2rem 0; }
+img { max-width: 100%; }
+.toc { background: var(--code-bg); padding: 0.5rem 1rem; border-radius: 6px; font: 0.9rem system-ui, sans-serif; }
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc-h3 { margin-left: 1rem; }
+.posts { list-style: none; padding: 0; }
+.posts li { padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
+.posts time { color: var(--muted); font: 0.8rem system-ui, sans-serif; margin-left: 0.5rem; }
+.posts p { margin: 0.25rem 0 0; color: var(--muted); }
+.site-footer { padding-top: 2rem; padding-bottom: 3rem; color: var(--muted); font: 0.8rem system-ui, sans-serif; }
