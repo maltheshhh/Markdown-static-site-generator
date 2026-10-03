@@ -126,6 +126,46 @@ func listHtml(items: Vector<Built>): str:
     ret out.concat("</ul>\n")
 end
 
+// leadingTitle returns the text of a "# Title" first line, or "" when the
+// first non-blank line is anything else.
+func leadingTitle(body: str): str:
+    lines := str.Replace(body, "\r\n", "\n").split("\n")
+    mut i := 0
+    while i < lines.len():
+        t := str.Trim(lines[i])
+        if t.len() > 0:
+            if str.StartsWith(t, "# "):
+                ret str.Trim(t.substr(2, t.len() - 2))
+            end
+            ret ""
+        end
+        i += 1
+    end
+    ret ""
+end
+
+// dropLeadingTitle removes the first "# Title" line so the template's own
+// page title is not repeated by the body.
+func dropLeadingTitle(body: str): str:
+    lines := str.Replace(body, "\r\n", "\n").split("\n")
+    mut out := ""
+    mut dropped := false
+    mut i := 0
+    while i < lines.len():
+        t := str.Trim(lines[i])
+        if !dropped && t.len() > 0 && str.StartsWith(t, "# "):
+            dropped = true
+        else:
+            if !dropped && t.len() > 0:
+                dropped = true
+            end
+            out = out.concat(lines[i]).concat("\n")
+        end
+        i += 1
+    end
+    ret out
+end
+
 func fail(msg: str): Report:
     ret Report { pages = 0, drafts = 0, error = msg }
 end
@@ -168,16 +208,20 @@ pub func Build(cfg: Config): Report:
             continue
         end
 
-        mut heads := Vector {} as Vector<blocks.Heading>
-        html := blocks.Render(doc.body, heads)
-
         mut title := frontmatter.Get(doc, "title", "")
-        if title.len() == 0 && heads.len() > 0:
-            title = heads[0].text
+        h1 := leadingTitle(doc.body)
+        if title.len() == 0 && h1.len() > 0:
+            title = h1
         end
         if title.len() == 0:
             title = stem
         end
+        mut body := doc.body
+        if h1 == title:
+            body = dropLeadingTitle(body)
+        end
+        mut heads := Vector {} as Vector<blocks.Heading>
+        html := blocks.Render(body, heads)
         mut base := slug.Make(stem)
         if base.len() == 0:
             base = "page"
