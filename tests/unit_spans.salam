@@ -1,0 +1,21 @@
+import os
+import "../src/spans"
+import "check"
+
+func main:
+    mut fails := 0
+    fails += check.Equal("plain", spans.Render("hello"), "hello")
+    fails += check.Equal("bold", spans.Render("a **b** c"), "a <strong>b</strong> c")
+    fails += check.Equal("italic", spans.Render("a *b* c"), "a <em>b</em> c")
+    fails += check.Equal("bold and italic", spans.Render("**x** and *y*"), "<strong>x</strong> and <em>y</em>")
+    fails += check.Equal("code", spans.Render("use `a < b` here"), "use <code>a &lt; b</code> here")
+    fails += check.Equal("code keeps stars", spans.Render("`*x*`"), "<code>*x*</code>")
+    fails += check.Equal("link", spans.Render("see [Salam](https://github.com/SalamLang/Salam)!"), "see <a href=\"https://github.com/SalamLang/Salam\">Salam</a>!")
+    fails += check.Equal("image", spans.Render("![logo](a.png)"), "<img src=\"a.png\" alt=\"logo\">")
+    fails += check.Equal("escape", spans.Render("1 < 2 & 3"), "1 &lt; 2 &amp; 3")
+    fails += check.Equal("unclosed star", spans.Render("2 * 3"), "2 * 3")
+    fails += check.Equal("unclosed code", spans.Render("a ` b"), "a ` b")
+    if fails > 0:
+        os.Exit(1)
+    end
+end

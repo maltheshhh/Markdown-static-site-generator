@@ -1,0 +1,92 @@
+// Inline Markdown (spans): code spans, **bold**, *italic*, [links](url) and ![images](url).
+package spans
+
+import str
+import "escape"
+
+// wrap converts every delim...delim pair in s into open...close.
+func wrap(s: str, delim: str, open: str, close: str): str:
+    dl := delim.len()
+    mut out := ""
+    mut rest := s
+    while true:
+        a := rest.find(delim)
+        if a < 0:
+            break
+        end
+        after := rest.substr(a + dl, rest.len() - a - dl)
+        b := after.find(delim)
+        if b <= 0:
+            break
+        end
+        out = out.concat(rest.substr(0, a)).concat(open).concat(after.substr(0, b)).concat(close)
+        rest = after.substr(b + dl, after.len() - b - dl)
+    end
+    ret out.concat(rest)
+end
+
+// links rewrites [text](url) into anchors, or ![alt](url) into images when image is true.
+func links(s: str, image: bool): str:
+    mut marker := "["
+    if image:
+        marker = "!["
+    end
+    mut out := ""
+    mut rest := s
+    while true:
+        a := rest.find(marker)
+        if a < 0:
+            break
+        end
+        afterOpen := rest.substr(a + marker.len(), rest.len() - a - marker.len())
+        mid := afterOpen.find("](")
+        if mid < 0:
+            break
+        end
+        afterMid := afterOpen.substr(mid + 2, afterOpen.len() - mid - 2)
+        endp := afterMid.find(")")
+        if endp < 0:
+            break
+        end
+        label := afterOpen.substr(0, mid)
+        url := afterMid.substr(0, endp)
+        mut tag := ""
+        if image:
+            tag = "<img src=\"".concat(url).concat("\" alt=\"").concat(label).concat("\">")
+        else:
+            tag = "<a href=\"".concat(url).concat("\">").concat(label).concat("</a>")
+        end
+        out = out.concat(rest.substr(0, a)).concat(tag)
+        rest = afterMid.substr(endp + 1, afterMid.len() - endp - 1)
+    end
+    ret out.concat(rest)
+end
+
+// format applies the non-code rules to an already escaped text segment.
+func format(s: str): str:
+    mut r := links(s, true)
+    r = links(r, false)
+    r = wrap(r, "**", "<strong>", "</strong>")
+    r = wrap(r, "*", "<em>", "</em>")
+    ret r
+end
+
+// Render converts one line or paragraph of inline Markdown into HTML.
+pub func Render(text: str): str:
+    parts := text.split("`")
+    // An odd number of backticks means an unclosed span: treat them as text.
+    if parts.len() % 2 == 0:
+        ret format(escape.Html(text))
+    end
+    mut out := ""
+    mut i := 0
+    while i < parts.len():
+        if i % 2 == 1:
+            out = out.concat("<code>").concat(escape.Html(parts[i])).concat("</code>")
+        else:
+            out = out.concat(format(escape.Html(parts[i])))
+        end
+        i += 1
+    end
+    ret out
+end
