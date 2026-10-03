@@ -1,0 +1,37 @@
+// Builds a table of contents from the headings found while rendering.
+package toc
+
+import str
+import "blocks"
+import "escape"
+
+// Build returns a <nav> listing every h2 and h3. Pages with fewer than two
+// such headings get an empty string, since a one-line contents list is noise.
+pub func Build(heads: Vector<blocks.Heading>): str:
+    mut count := 0
+    mut i := 0
+    while i < heads.len():
+        if heads[i].level == 2 || heads[i].level == 3:
+            count += 1
+        end
+        i += 1
+    end
+    if count < 2:
+        ret ""
+    end
+    mut out := "<nav class=\"toc\">\n<ul>\n"
+    i = 0
+    while i < heads.len():
+        h := heads[i]
+        if h.level == 2 || h.level == 3:
+            mut cls := "toc-h2"
+            if h.level == 3:
+                cls = "toc-h3"
+            end
+            out = out.concat("<li class=\"").concat(cls).concat("\"><a href=\"#").concat(h.id).concat("\">")
+            out = out.concat(escape.Html(h.text)).concat("</a></li>\n")
+        end
+        i += 1
+    end
+    ret out.concat("</ul>\n</nav>\n")
+end

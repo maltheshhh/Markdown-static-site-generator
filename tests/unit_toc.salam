@@ -1,0 +1,19 @@
+import os
+import "../src/blocks"
+import "../src/toc"
+import "check"
+
+func main:
+    mut fails := 0
+    mut heads := Vector {} as Vector<blocks.Heading>
+    blocks.Render("# Title\n## Intro\ntext\n### Detail\n## End", heads)
+    expected := "<nav class=\"toc\">\n<ul>\n<li class=\"toc-h2\"><a href=\"#intro\">Intro</a></li>\n<li class=\"toc-h3\"><a href=\"#detail\">Detail</a></li>\n<li class=\"toc-h2\"><a href=\"#end\">End</a></li>\n</ul>\n</nav>\n"
+    fails += check.Equal("toc output", toc.Build(heads), expected)
+
+    mut few := Vector {} as Vector<blocks.Heading>
+    blocks.Render("# Only\n## One", few)
+    fails += check.Equal("toc skipped when tiny", toc.Build(few), "")
+    if fails > 0:
+        os.Exit(1)
+    end
+end
