@@ -1,0 +1,27 @@
+// Turns arbitrary text into URL-friendly slugs.
+package slug
+
+import str
+
+// Make lowercases the text, keeps ASCII letters and digits, and joins the
+// remaining words with single dashes. "Hello, World!" becomes "hello-world".
+pub func Make(text: str): str:
+    lower := str.Lower(text)
+    mut out := ""
+    mut pending := false
+    mut i := 0
+    while i < lower.len():
+        code := lower[i] as int
+        if str.IsAsciiAlnum(code):
+            if pending && out.len() > 0:
+                out = out.concat("-")
+            end
+            pending = false
+            out = out.concat(lower.substr(i, 1))
+        else:
+            pending = true
+        end
+        i += 1
+    end
+    ret out
+end

@@ -1,0 +1,18 @@
+// Small text statistics used for page metadata.
+package stats
+
+import str
+
+// Words counts whitespace separated words.
+pub func Words(text: str): int:
+    ret str.Fields(text).len()
+end
+
+// ReadingMinutes estimates reading time at 200 words per minute (minimum 1).
+pub func ReadingMinutes(words: int): int:
+    mins := (words + 199) / 200
+    if mins < 1:
+        ret 1
+    end
+    ret mins
+end

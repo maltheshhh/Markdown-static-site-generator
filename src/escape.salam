@@ -1,0 +1,13 @@
+// HTML escaping helpers.
+package escape
+
+import str
+
+// Html escapes the characters that are significant in HTML text and attributes.
+pub func Html(s: str): str:
+    mut r := str.Replace(s, "&", "&amp;")
+    r = str.Replace(r, "<", "&lt;")
+    r = str.Replace(r, ">", "&gt;")
+    r = str.Replace(r, "\"", "&quot;")
+    ret r
+end

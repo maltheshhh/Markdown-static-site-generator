@@ -1,0 +1,19 @@
+import os
+import "../src/escape"
+import "../src/slug"
+import "../src/stats"
+import "check"
+
+func main:
+    mut fails := 0
+    fails += check.Equal("escape basic", escape.Html("<a href=\"x\">&</a>"), "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;")
+    fails += check.Equal("slug simple", slug.Make("Hello, World!"), "hello-world")
+    fails += check.Equal("slug spaces", slug.Make("  Many   Spaces -- here "), "many-spaces-here")
+    fails += check.Equal("slug digits", slug.Make("Top 10 Tips"), "top-10-tips")
+    fails += check.EqualInt("words", stats.Words("one two  three\nfour"), 4)
+    fails += check.EqualInt("reading min floor", stats.ReadingMinutes(10), 1)
+    fails += check.EqualInt("reading min 450", stats.ReadingMinutes(450), 3)
+    if fails > 0:
+        os.Exit(1)
+    end
+end

@@ -1,0 +1,24 @@
+// Minimal assertion helper shared by the unit test programs.
+package check
+
+// Equal prints PASS/FAIL for one comparison and returns 1 when it failed.
+pub func Equal(name: str, got: str, want: str): int:
+    if got == want:
+        println "PASS  ".concat(name)
+        ret 0
+    end
+    println "FAIL  ".concat(name)
+    println "  want: ".concat(want)
+    println "  got:  ".concat(got)
+    ret 1
+end
+
+// EqualInt is Equal for integers.
+pub func EqualInt(name: str, got: int, want: int): int:
+    if got == want:
+        println "PASS  ".concat(name)
+        ret 0
+    end
+    println "FAIL  ".concat(name)
+    ret 1
+end
