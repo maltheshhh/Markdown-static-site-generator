@@ -1,0 +1,81 @@
+// Splits a Markdown file into its "key: value" header and the body.
+//
+//   ---
+//   title: My Post
+//   date: 2026-10-03
+//   ---
+//   Body starts here.
+package frontmatter
+
+import str
+
+pub struct Doc:
+    pub keys: Vector<str>
+    pub vals: Vector<str>
+    pub body: str
+end
+
+// unquote removes one pair of matching surrounding quotes.
+func unquote(s: str): str:
+    if s.len() >= 2:
+        f := s.substr(0, 1)
+        l := s.substr(s.len() - 1, 1)
+        if (f == "\"" && l == "\"") || (f == "'" && l == "'"):
+            ret s.substr(1, s.len() - 2)
+        end
+    end
+    ret s
+end
+
+// Parse reads the optional header. Files without one get an empty header.
+pub func Parse(raw: str): Doc:
+    text := str.Replace(raw, "\r\n", "\n")
+    lines := text.split("\n")
+    mut keys := Vector {} as Vector<str>
+    mut vals := Vector {} as Vector<str>
+    if lines.len() == 0 || str.Trim(lines[0]) != "---":
+        ret Doc { keys = keys, vals = vals, body = text }
+    end
+    mut i := 1
+    mut closed := false
+    while i < lines.len():
+        line := lines[i]
+        if str.Trim(line) == "---":
+            closed = true
+            i += 1
+            break
+        end
+        colon := line.find(":")
+        if colon > 0:
+            keys.push(str.Trim(line.substr(0, colon)))
+            vals.push(unquote(str.Trim(line.substr(colon + 1, line.len() - colon - 1))))
+        end
+        i += 1
+    end
+    if !closed:
+        // Unterminated header: treat the whole file as body.
+        none := Vector {} as Vector<str>
+        ret Doc { keys = none, vals = none, body = text }
+    end
+    mut body := ""
+    while i < lines.len():
+        body = body.concat(lines[i])
+        if i + 1 < lines.len():
+            body = body.concat("\n")
+        end
+        i += 1
+    end
+    ret Doc { keys = keys, vals = vals, body = body }
+end
+
+// Get returns the value for key, or fallback when the key is missing.
+pub func Get(d: Doc, key: str, fallback: str): str:
+    mut i := 0
+    while i < d.keys.len():
+        if d.keys[i] == key:
+            ret d.vals[i]
+        end
+        i += 1
+    end
+    ret fallback
+end

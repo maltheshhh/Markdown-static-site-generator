@@ -1,0 +1,37 @@
+import os
+import "../src/frontmatter"
+import "../src/template"
+import "check"
+
+func main:
+    mut fails := 0
+
+    doc := frontmatter.Parse("---\ntitle: \"Hello: World\"\ndate: 2026-10-03\n---\nBody line\nsecond")
+    fails += check.Equal("fm title", frontmatter.Get(doc, "title", "x"), "Hello: World")
+    fails += check.Equal("fm date", frontmatter.Get(doc, "date", "x"), "2026-10-03")
+    fails += check.Equal("fm missing", frontmatter.Get(doc, "tags", "none"), "none")
+    fails += check.Equal("fm body", doc.body, "Body line\nsecond")
+
+    plain := frontmatter.Parse("# Just markdown\n")
+    fails += check.Equal("fm absent header", plain.body, "# Just markdown\n")
+    fails += check.Equal("fm absent title", frontmatter.Get(plain, "title", "Untitled"), "Untitled")
+
+    open := frontmatter.Parse("---\ntitle: x\nno end")
+    fails += check.Equal("fm unterminated", open.body, "---\ntitle: x\nno end")
+
+    crlf := frontmatter.Parse("---\r\ntitle: Win\r\n---\r\nhi")
+    fails += check.Equal("fm crlf", frontmatter.Get(crlf, "title", "x"), "Win")
+
+    mut v := template.New()
+    template.Set(v, "title", "Hi")
+    template.Set(v, "content", "{{title}} stays")
+    fails += check.Equal("tpl basic", template.Apply("<h1>{{title}}</h1>", v), "<h1>Hi</h1>")
+    fails += check.Equal("tpl single pass", template.Apply("{{ content }}", v), "{{title}} stays")
+    fails += check.Equal("tpl unknown", template.Apply("a{{nope}}b", v), "ab")
+    template.Set(v, "title", "Bye")
+    fails += check.Equal("tpl overwrite", template.Apply("{{title}}", v), "Bye")
+    fails += check.Equal("tpl unclosed", template.Apply("a {{b", v), "a {{b")
+    if fails > 0:
+        os.Exit(1)
+    end
+end

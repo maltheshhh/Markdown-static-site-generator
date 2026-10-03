@@ -1,0 +1,59 @@
+// A tiny {{placeholder}} template engine.
+package template
+
+pub struct Vars:
+    pub names: Vector<str>
+    pub values: Vector<str>
+end
+
+func lookup(v: Vars, name: str): str:
+    mut i := 0
+    while i < v.names.len():
+        if v.names[i] == name:
+            ret v.values[i]
+        end
+        i += 1
+    end
+    ret ""
+end
+
+pub func New(): Vars:
+    ret Vars { names = Vector {} as Vector<str>, values = Vector {} as Vector<str> }
+end
+
+// Set adds a variable or overwrites an existing one.
+pub func Set(v &: Vars, name: str, value: str):
+    mut i := 0
+    while i < v.names.len():
+        if v.names[i] == name:
+            v.values[i] = value
+            ret
+        end
+        i += 1
+    end
+    v.names.push(name)
+    v.values.push(value)
+end
+
+// Apply replaces every {{name}} in tpl in a single pass, so values that
+// themselves contain braces are never expanded twice. Unknown names expand
+// to the empty string.
+pub func Apply(tpl: str, v: Vars): str:
+    mut out := ""
+    mut rest := tpl
+    while true:
+        a := rest.find("{{")
+        if a < 0:
+            break
+        end
+        after := rest.substr(a + 2, rest.len() - a - 2)
+        b := after.find("}}")
+        if b < 0:
+            break
+        end
+        name := after.substr(0, b).trim()
+        out = out.concat(rest.substr(0, a)).concat(lookup(v, name))
+        rest = after.substr(b + 2, after.len() - b - 2)
+    end
+    ret out.concat(rest)
+end
