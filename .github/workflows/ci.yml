@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Salam
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/SalamLang/Salam/refs/heads/main/install.sh | sh -s -- --version 0.4.4
+          echo "$HOME/.salam/bin" >> "$GITHUB_PATH"
+      - name: Unit tests and smoke tests
+        run: sh tests/smoke.sh

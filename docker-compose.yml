@@ -1,0 +1,9 @@
+# `docker compose up --build` renders ./content into ./site.
+services:
+  salam-press:
+    build: .
+    volumes:
+      - ./content:/app/content:ro
+      - ./templates:/app/templates:ro
+      - ./site:/app/site
+    command: ["--out=/app/site", "--title=Salam Press Site"]
