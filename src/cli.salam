@@ -1,0 +1,96 @@
+// Command line parsing for salam-press.
+//
+//   salam-press [build] [--src=DIR] [--out=DIR] [--templates=DIR] [--title=TEXT]
+//   salam-press help | version
+package cli
+
+import str
+
+pub struct Options:
+    pub command: str
+    pub src: str
+    pub out: str
+    pub templates: str
+    pub title: str
+    pub error: str
+end
+
+func usageError(msg: str): Options:
+    ret Options { command = "help", src = "", out = "", templates = "", title = "", error = msg }
+end
+
+// Version is the release number shown by `salam-press version`.
+pub func Version(): str:
+    ret "0.1.0"
+end
+
+pub func Usage(): str:
+    mut u := "salam-press - Markdown static site generator written in Salam\n\n"
+    u = u.concat("Usage:\n")
+    u = u.concat("  salam-press [build] [options]\n")
+    u = u.concat("  salam-press help\n")
+    u = u.concat("  salam-press version\n\n")
+    u = u.concat("Options:\n")
+    u = u.concat("  --src=DIR         Markdown directory           (default: content)\n")
+    u = u.concat("  --out=DIR         output directory             (default: site)\n")
+    u = u.concat("  --templates=DIR   page/index/style templates   (default: templates)\n")
+    u = u.concat("  --title=TEXT      site title                   (default: Salam Press Site)\n")
+    ret u
+end
+
+// Parse turns the raw argument vector (program name first) into Options.
+// Both "--out=dir" and "--out dir" are accepted.
+pub func Parse(args: Vector<str>): Options:
+    mut o := Options { command = "build", src = "content", out = "site", templates = "templates", title = "Salam Press Site", error = "" }
+    mut i := 1
+    mut sawCommand := false
+    while i < args.len():
+        arg := args[i]
+        i += 1
+        if arg == "help" || arg == "--help" || arg == "-h":
+            o.command = "help"
+            ret o
+        end
+        if arg == "version" || arg == "--version":
+            o.command = "version"
+            ret o
+        end
+        if arg == "build" && !sawCommand:
+            sawCommand = true
+            continue
+        end
+        if !str.StartsWith(arg, "--"):
+            ret usageError("unexpected argument: ".concat(arg))
+        end
+
+        mut name := arg
+        mut value := ""
+        eq := arg.find("=")
+        if eq > 0:
+            name = arg.substr(0, eq)
+            value = arg.substr(eq + 1, arg.len() - eq - 1)
+        else:
+            if i >= args.len():
+                ret usageError("missing value for ".concat(arg))
+            end
+            value = args[i]
+            i += 1
+        end
+        if value.len() == 0:
+            ret usageError("empty value for ".concat(name))
+        end
+
+        if name == "--src":
+            o.src = value
+        else name == "--out":
+            o.out = value
+        else name == "--templates":
+            o.templates = value
+        else name == "--title":
+            o.title = value
+        else:
+            ret usageError("unknown option: ".concat(name))
+        end
+    end
+    ret o
+end

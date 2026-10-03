@@ -1,0 +1,238 @@
+// The site builder: reads Markdown pages, renders them through the page
+// template and writes HTML plus an index into the output directory.
+package site
+
+import io
+import os
+import str
+import fs.dir
+import "blocks"
+import "escape"
+import "frontmatter"
+import "slug"
+import "stats"
+import "template"
+import "toc"
+
+pub struct Config:
+    pub src: str
+    pub out: str
+    pub templates: str
+    pub title: str
+end
+
+pub struct Page:
+    pub title: str
+    pub file: str
+    pub date: str
+    pub description: str
+    pub minutes: int
+    pub nav: bool
+end
+
+// Built couples a page's metadata with its rendered body.
+pub struct Built:
+    pub page: Page
+    pub content: str
+    pub toc: str
+end
+
+pub struct Report:
+    pub pages: int
+    pub drafts: int
+    pub error: str
+end
+
+func isMarkdown(name: str): bool:
+    ret str.EndsWith(name, ".md")
+end
+
+// sortNames orders file names alphabetically so builds are reproducible.
+func sortNames(names &: Vector<str>):
+    mut i := 1
+    while i < names.len():
+        cur := names[i]
+        mut j := i - 1
+        while j >= 0 && str.Compare(names[j], cur) > 0:
+            names[j + 1] = names[j]
+            j -= 1
+        end
+        names[j + 1] = cur
+        i += 1
+    end
+end
+
+// newestFirst returns the indexes of items ordered by date, newest first.
+// Pages without a date sort last, ties fall back to the title.
+func newestFirst(items: Vector<Built>): Vector<int>:
+    mut order := Vector {} as Vector<int>
+    mut k := 0
+    while k < items.len():
+        order.push(k)
+        k += 1
+    end
+    mut i := 1
+    while i < order.len():
+        cur := order[i]
+        mut j := i - 1
+        while j >= 0 && after(items[order[j]].page, items[cur].page):
+            order[j + 1] = order[j]
+            j -= 1
+        end
+        order[j + 1] = cur
+        i += 1
+    end
+    ret order
+end
+
+// after reports whether a should be listed after b.
+func after(a: Page, b: Page): bool:
+    c := str.Compare(a.date, b.date)
+    if c != 0:
+        ret c < 0
+    end
+    ret str.Compare(a.title, b.title) > 0
+end
+
+func navHtml(items: Vector<Built>): str:
+    mut out := "<a href=\"index.html\">Home</a>"
+    mut i := 0
+    while i < items.len():
+        p := items[i].page
+        if p.nav:
+            out = out.concat(" <a href=\"").concat(p.file).concat("\">").concat(escape.Html(p.title)).concat("</a>")
+        end
+        i += 1
+    end
+    ret out
+end
+
+func listHtml(items: Vector<Built>): str:
+    order := newestFirst(items)
+    mut out := "<ul class=\"posts\">\n"
+    mut i := 0
+    while i < order.len():
+        p := items[order[i]].page
+        out = out.concat("<li><a href=\"").concat(p.file).concat("\">").concat(escape.Html(p.title)).concat("</a>")
+        if p.date.len() > 0:
+            out = out.concat(" <time>").concat(escape.Html(p.date)).concat("</time>")
+        end
+        if p.description.len() > 0:
+            out = out.concat("<p>").concat(escape.Html(p.description)).concat("</p>")
+        end
+        out = out.concat("</li>\n")
+        i += 1
+    end
+    ret out.concat("</ul>\n")
+end
+
+func fail(msg: str): Report:
+    ret Report { pages = 0, drafts = 0, error = msg }
+end
+
+// Build renders every .md file in cfg.src. It never panics: problems come
+// back in Report.error so the CLI can choose the exit status.
+pub func Build(cfg: Config): Report:
+    if !os.Exists(cfg.src):
+        ret fail("source directory not found: ".concat(cfg.src))
+    end
+    pageTpl := io.ReadFile(cfg.templates.concat("/page.html"))
+    if pageTpl.len() == 0:
+        ret fail("missing template: ".concat(cfg.templates).concat("/page.html"))
+    end
+    indexTpl := io.ReadFile(cfg.templates.concat("/index.html"))
+    if indexTpl.len() == 0:
+        ret fail("missing template: ".concat(cfg.templates).concat("/index.html"))
+    end
+
+    mut names := dir.ListFiles(cfg.src)
+    sortNames(names)
+
+    mut items := Vector {} as Vector<Built>
+    mut drafts := 0
+    mut i := 0
+    while i < names.len():
+        name := names[i]
+        i += 1
+        if !isMarkdown(name):
+            continue
+        end
+        stem := str.TrimSuffix(name, ".md")
+        if stem == "index":
+            ret fail("index.md is reserved for the generated home page; rename it")
+        end
+        raw := io.ReadFile(cfg.src.concat("/").concat(name))
+        doc := frontmatter.Parse(raw)
+        if frontmatter.Get(doc, "draft", "false") == "true":
+            drafts += 1
+            continue
+        end
+
+        mut heads := Vector {} as Vector<blocks.Heading>
+        html := blocks.Render(doc.body, heads)
+
+        mut title := frontmatter.Get(doc, "title", "")
+        if title.len() == 0 && heads.len() > 0:
+            title = heads[0].text
+        end
+        if title.len() == 0:
+            title = stem
+        end
+        mut base := slug.Make(stem)
+        if base.len() == 0:
+            base = "page"
+        end
+
+        page := Page {
+            title = title,
+            file = base.concat(".html"),
+            date = frontmatter.Get(doc, "date", ""),
+            description = frontmatter.Get(doc, "description", ""),
+            minutes = stats.ReadingMinutes(stats.Words(doc.body)),
+            nav = frontmatter.Get(doc, "nav", "false") == "true"
+        }
+        items.push(Built { page = page, content = html, toc = toc.Build(heads) })
+    end
+
+    if dir.MkdirAll(cfg.out) != 0 && !dir.Exists(cfg.out):
+        ret fail("cannot create output directory: ".concat(cfg.out))
+    end
+
+    nav := navHtml(items)
+    mut written := 0
+    mut k := 0
+    while k < items.len():
+        b := items[k]
+        mut v := template.New()
+        template.Set(v, "site_title", escape.Html(cfg.title))
+        template.Set(v, "title", escape.Html(b.page.title))
+        template.Set(v, "description", escape.Html(b.page.description))
+        template.Set(v, "date", escape.Html(b.page.date))
+        template.Set(v, "minutes", str.FromInt(b.page.minutes as i64))
+        template.Set(v, "nav", nav)
+        template.Set(v, "toc", b.toc)
+        template.Set(v, "content", b.content)
+        target := cfg.out.concat("/").concat(b.page.file)
+        if io.WriteFile(target, template.Apply(pageTpl, v)) < 0:
+            ret fail("cannot write ".concat(target))
+        end
+        written += 1
+        k += 1
+    end
+
+    mut iv := template.New()
+    template.Set(iv, "site_title", escape.Html(cfg.title))
+    template.Set(iv, "title", escape.Html(cfg.title))
+    template.Set(iv, "nav", nav)
+    template.Set(iv, "count", str.FromInt(items.len() as i64))
+    template.Set(iv, "list", listHtml(items))
+    if io.WriteFile(cfg.out.concat("/index.html"), template.Apply(indexTpl, iv)) < 0:
+        ret fail("cannot write index.html")
+    end
+
+    css := io.ReadFile(cfg.templates.concat("/style.css"))
+    if css.len() > 0:
+        io.WriteFile(cfg.out.concat("/style.css"), css)
+    end
+    ret Report { pages = written, drafts = drafts, error = "" }
+end

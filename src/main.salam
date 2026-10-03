@@ -1,0 +1,38 @@
+// salam-press entry point: wires the CLI options to the site builder.
+import os
+import str
+import "cli"
+import "site"
+
+func main:
+    opts := cli.Parse(os.Args())
+    if opts.error.len() > 0:
+        printerrln "error: ".concat(opts.error)
+        printerrln ""
+        printerrln cli.Usage()
+        os.Exit(2)
+    end
+    if opts.command == "help":
+        println cli.Usage()
+        os.Exit(0)
+    end
+    if opts.command == "version":
+        println "salam-press ".concat(cli.Version())
+        os.Exit(0)
+    end
+
+    cfg := site.Config { src = opts.src, out = opts.out, templates = opts.templates, title = opts.title }
+    report := site.Build(cfg)
+    if report.error.len() > 0:
+        printerrln "error: ".concat(report.error)
+        os.Exit(1)
+    end
+    mut line := "Built ".concat(str.FromInt(report.pages as i64)).concat(" page")
+    if report.pages != 1:
+        line = line.concat("s")
+    end
+    if report.drafts > 0:
+        line = line.concat(" (").concat(str.FromInt(report.drafts as i64)).concat(" draft skipped)")
+    end
+    println line.concat(" -> ").concat(opts.out)
+end
